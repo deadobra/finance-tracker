@@ -14,10 +14,19 @@ jobs:
         with:
           node-version: 24
 
+      - name: Find project folder
+        id: find
+        run: |
+          DIR=$(find . -name "package.json" -not -path "*/node_modules/*" -exec dirname {} \; | head -n 1)
+          echo "dir=$DIR" >> $GITHUB_OUTPUT
+          echo "Found project in $DIR"
+
       - name: Install packages
+        working-directory: ${{ steps.find.outputs.dir }}
         run: npm install
 
-      - name: Build website files
+      - name: Build website
+        working-directory: ${{ steps.find.outputs.dir }}
         run: npm run build
 
       - name: Setup Java
@@ -30,19 +39,21 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Create Android project
+        working-directory: ${{ steps.find.outputs.dir }}
         run: |
           npx cap add android
           npx cap sync android
 
       - name: Fix permissions
+        working-directory: ${{ steps.find.outputs.dir }}
         run: chmod +x android/gradlew
 
-      - name: Build the APK
-        working-directory: android
+      - name: Build APK
+        working-directory: ${{ steps.find.outputs.dir }}/android
         run: ./gradlew assembleDebug --no-daemon
 
-      - name: Save APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: FinanceTracker-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ steps.find.outputs.dir }}/android/app/build/outputs/apk/debug/app-debug.apk
